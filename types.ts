@@ -99,7 +99,8 @@ export interface RichDictionaryResult {
     phrases: { text: string; trans: string }[];
     roots: { root: string; words: { text: string; trans: string }[] }[];
     synonyms: { text: string; trans: string }[];
-    picUrl?: string;
+    
+    images: string[]; // Multiple images
     video?: { title: string; url: string; cover: string };
     
     // Split Cards
@@ -113,7 +114,7 @@ export interface DictionaryMeaningCard {
     inflections: string[]; // Specific to this meaning
     tags: string[];
     importance: number;
-    cocaRank: number;
+    cocaRank: number; // Defaults to 0/empty, user editable
     example: string;
     exampleTrans: string;
 }
