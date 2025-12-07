@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Loader2, Wand2, Volume2, Save, X, Search, Image as ImageIcon, Video, Layers, Hash, BarChart2, Star, Youtube, ExternalLink, Book, Edit3, ImageOff } from 'lucide-react';
 import { WordEntry, RichDictionaryResult, DictionaryMeaningCard, WordCategory } from '../../types';
@@ -10,6 +9,7 @@ interface AddWordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (entryData: Partial<WordEntry>) => Promise<void>;
+  initialCategory: WordCategory; // 接收初始分类
 }
 
 // Internal State for Editable Cards
@@ -18,7 +18,7 @@ interface EditableCardState extends DictionaryMeaningCard {
     selectedImage: string | null; // URL or null
 }
 
-export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onConfirm }) => {
+export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onConfirm, initialCategory }) => {
   const [inputText, setInputText] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<RichDictionaryResult | null>(null);
@@ -95,10 +95,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
               roots: searchResult.roots,
               synonyms: searchResult.synonyms,
               
-              // Defaults
-              category: WordCategory.WantToLearnWord,
+              // Defaults - Use passed category
+              category: initialCategory,
               addedAt: Date.now() + idx, 
-              scenarioId: '1' 
+              scenarioId: '1' // Will be overridden by WordManager
           };
           promises.push(onConfirm(entry));
       });

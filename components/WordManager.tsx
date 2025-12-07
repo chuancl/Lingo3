@@ -411,7 +411,8 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
       <AddWordModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
-        onConfirm={handleAddWord} 
+        onConfirm={handleAddWord}
+        initialCategory={activeTab === 'all' ? WordCategory.WantToLearnWord : activeTab}
       />
 
       <MergeConfigModal 
