@@ -23,7 +23,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<RichDictionaryResult | null>(null);
   
-  // Array of editable cards derived from search result
   const [cards, setCards] = useState<EditableCardState[]>([]);
 
   useEffect(() => {
@@ -44,13 +43,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
           setSearchResult(result);
           
           // Initialize editable cards
-          // Default: first image selected for all cards (if available)
-          const defaultImage = result.images.length > 0 ? result.images[0] : null;
+          // Default: No image selected initially, or first available
+          // User requested "can select blank", so default null is safer unless we want to be smart.
+          // Let's default to null to let user choose.
           
           const initialCards: EditableCardState[] = result.meanings.map((m, idx) => ({
               ...m,
               isSelected: idx === 0, // Select first by default
-              selectedImage: defaultImage
+              selectedImage: null 
           }));
           setCards(initialCards);
 
@@ -91,7 +91,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
               cocaRank: Number(card.cocaRank) || 0,
               
               image: card.selectedImage || undefined,
-              video: searchResult.video, // Attach video if available
+              video: searchResult.video, 
+              
+              // New Public Fields
+              phrases: searchResult.phrases,
+              roots: searchResult.roots,
+              synonyms: searchResult.synonyms,
               
               // Defaults
               category: WordCategory.WantToLearnWord,
@@ -150,7 +155,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                         {/* 1. Public Info Panel */}
                         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
                             <div className="flex flex-col lg:flex-row gap-8">
-                                {/* Left: Word Basic */}
+                                {/* Left: Word Basic & Public Data */}
                                 <div className="flex-1">
                                     <div className="flex items-baseline gap-4 mb-2">
                                         <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight">{String(searchResult.text)}</h2>
@@ -177,12 +182,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                         </div>
                                     )}
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
                                         {/* Phrases */}
                                         {searchResult.phrases.length > 0 && (
-                                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 max-h-40 overflow-y-auto custom-scrollbar">
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">常用短语 (Phrases)</span>
-                                                <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                                                <div className="flex flex-col gap-1.5">
                                                     {searchResult.phrases.map((p, i) => (
                                                         <div key={i} className="text-xs flex gap-2">
                                                             <span className="font-medium text-slate-700">{String(p.text)}</span>
@@ -192,11 +197,31 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                                 </div>
                                             </div>
                                         )}
+                                        
+                                        {/* Roots */}
+                                        {searchResult.roots.length > 0 && (
+                                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 max-h-40 overflow-y-auto custom-scrollbar">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">词根 (Roots)</span>
+                                                <div className="space-y-2">
+                                                    {searchResult.roots.map((r, i) => (
+                                                        <div key={i} className="text-xs">
+                                                            <span className="text-slate-400 font-mono block mb-0.5">{String(r.root)}</span>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {r.words.map((w, wi) => (
+                                                                    <span key={wi} className="bg-white border px-1 rounded text-[10px] text-slate-600" title={String(w.trans)}>{String(w.text)}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Synonyms */}
                                         {searchResult.synonyms.length > 0 && (
-                                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 max-h-40 overflow-y-auto custom-scrollbar">
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">近义词 (Synonyms)</span>
-                                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                                                <div className="flex flex-wrap gap-2">
                                                     {searchResult.synonyms.map((s, i) => (
                                                         <div key={i} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded" title={String(s.trans)}>
                                                             <span className="text-slate-600">{String(s.text)}</span>
@@ -300,7 +325,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                                                 <Star 
                                                                     key={star} 
                                                                     className={`w-4 h-4 cursor-pointer transition-colors ${star <= card.importance ? 'fill-amber-400 text-amber-400' : 'text-amber-200'}`}
-                                                                    onClick={() => handleUpdateCard(index, 'importance', star === card.importance ? 0 : star)} // Toggle off
+                                                                    onClick={() => handleUpdateCard(index, 'importance', star === card.importance ? 0 : star)} 
                                                                 />
                                                             ))}
                                                         </div>
@@ -357,7 +382,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                                 </div>
                                             </div>
 
-                                            {/* Bottom Row: Image Selection */}
+                                            {/* Bottom Row: Image Selection (PER CARD) */}
                                             {searchResult.images.length > 0 && (
                                                 <div className="space-y-2">
                                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">选择配图</span>

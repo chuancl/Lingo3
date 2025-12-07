@@ -27,7 +27,6 @@ export default defineBackground(() => {
   });
 
   // --- Aggressive Sanitization Helper ---
-  // Fixes: "Objects are not valid as a React child" by ensuring deep objects are converted to strings
   const safeString = (input: any): string => {
       if (input === null || input === undefined) return '';
       if (typeof input === 'string') return input;
@@ -35,7 +34,6 @@ export default defineBackground(() => {
       
       // If it's an object, try to extract known text-bearing properties
       if (typeof input === 'object') {
-          // Common Youdao keys
           const candidates = [
               input.value, 
               input.text, 
@@ -57,7 +55,6 @@ export default defineBackground(() => {
       return '';
   };
 
-  // --- Helpers ---
   const normalizeTags = (tags: any): string[] => {
       if (!Array.isArray(tags)) return [];
       return tags.map(t => safeString(t)).filter(t => t.trim().length > 0);
@@ -90,7 +87,6 @@ export default defineBackground(() => {
       }
 
       // 2. Public Info: Inflections
-      // Prefer collins_primary for base forms, but wfs is often more comprehensive
       let inflections: string[] = [];
       if (data.collins_primary?.words?.indexforms) {
            inflections = normalizeForms(data.collins_primary.words.indexforms);
@@ -157,11 +153,10 @@ export default defineBackground(() => {
 
       // 7. Video (word_video)
       let video = undefined;
-      if (data.word_video?.video && Array.isArray(data.word_video.video)) {
-          // Youdao structure sometimes returns an array
-          const v = data.word_video.video[0];
+      if (data.word_video?.word_videos && Array.isArray(data.word_video.word_videos)) {
+          const v = data.word_video.word_videos[0]?.video;
           if (v) {
-              const url = safeString(v.url || v.video_url); // Check multiple keys
+              const url = safeString(v.url || v.video_url); 
               const cover = safeString(v.cover);
               const title = safeString(v.title);
               if (url) {
@@ -170,11 +165,10 @@ export default defineBackground(() => {
           }
       }
 
-      // 8. Meaning Cards
+      // 8. Meaning Cards Logic
       const meanings: DictionaryMeaningCard[] = [];
-      const globalTags = normalizeTags(data.ec?.exam_type || []); // Global exams
+      const globalTags = normalizeTags(data.ec?.exam_type || []); 
       
-      // Collins Star logic
       let star = 0;
       if (data.collins?.collins_entries?.[0]?.star) {
           const s = parseInt(String(data.collins.collins_entries[0].star));
@@ -183,8 +177,7 @@ export default defineBackground(() => {
 
       let hasCollinsData = false;
 
-      // --- LOGIC A: Collins Primary ---
-      // Requirement: If collins_primary has data, do not check expand_ec.
+      // --- STRATEGY: COLLINS PRIMARY ---
       if (data.collins_primary?.gramcat && Array.isArray(data.collins_primary.gramcat) && data.collins_primary.gramcat.length > 0) {
           data.collins_primary.gramcat.forEach((cat: any) => {
                const pos = safeString(cat.partofspeech);
@@ -195,28 +188,25 @@ export default defineBackground(() => {
                     cat.senses.forEach((sense: any) => {
                         hasCollinsData = true;
 
-                        // REQUEST: Priority from collins_primary.gramcat[0].senses[0].word
-                        // Note: Youdao sometimes puts Chinese in 'word' for Collins.
+                        // PATH: collins_primary.gramcat[0].senses[0].word (Fallback to chn_tran if simple)
                         let defCn = safeString(sense.word); 
                         if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) {
-                            // Fallback if 'word' is empty or looks like English
                             defCn = safeString(sense.chn_tran);
                         }
 
-                        // REQUEST: Priority from collins_primary.gramcat[0].senses[0].definition
+                        // PATH: collins_primary.gramcat[0].senses[0].definition
                         const defEn = safeString(sense.definition);
                         
-                        // REQUEST: Priority from ...examples[0].example
                         const exObj = sense.examples?.[0];
                         let example = '';
                         let exampleTrans = '';
 
                         if (exObj) {
-                            // Some Youdao responses use 'ex', some 'example'
+                            // PATH: collins_primary.gramcat[0].senses[0].examples[0].example
                             example = safeString(exObj.example) || safeString(exObj.ex);
                             
-                            // REQUEST: Priority from ...examples[0].sense.word
-                            // NOTE: 'sense' might be an object inside example
+                            // PATH: collins_primary.gramcat[0].senses[0].examples[0].sense.word
+                            // Note: 'sense' is an object here inside example sometimes
                             exampleTrans = safeString(exObj.sense?.word);
                             if (!exampleTrans) {
                                 exampleTrans = safeString(exObj.tran);
@@ -241,8 +231,7 @@ export default defineBackground(() => {
           });
       }
 
-      // --- LOGIC B: Expand EC (Fallback) ---
-      // ONLY run if no Collins data was extracted
+      // --- STRATEGY: EXPAND EC (Only if Collins Failed) ---
       if (!hasCollinsData && data.expand_ec?.word && Array.isArray(data.expand_ec.word)) {
           data.expand_ec.word.forEach((w: any) => {
               const pos = safeString(w.pos);
@@ -250,17 +239,17 @@ export default defineBackground(() => {
               
               if (w.transList && Array.isArray(w.transList)) {
                   w.transList.forEach((tr: any) => {
-                      // REQUEST: expand_ec.word[0].transList[0].trans
+                      // PATH: expand_ec.word[0].transList[0].trans
                       const defCn = safeString(tr.trans) || safeString(tr.content);
                       
-                      // REQUEST: expand_ec ... English Definition -> Empty
+                      // PATH: English Def is Empty
                       const defEn = ''; 
 
-                      // REQUEST: expand_ec... sentOrig
+                      // PATH: expand_ec... sentOrig
                       const sentObj = tr.content?.sents?.[0];
                       const example = sentObj ? safeString(sentObj.sentOrig) : '';
                       
-                      // REQUEST: expand_ec... sentTrans
+                      // PATH: expand_ec... sentTrans
                       const exampleTrans = sentObj ? safeString(sentObj.sentTrans) : '';
 
                       if (defCn) {
@@ -281,7 +270,7 @@ export default defineBackground(() => {
           });
       }
       
-      // Fallback C: If absolutely nothing found, try basic 'ec'
+      // Fallback: EC
       if (meanings.length === 0 && data.ec?.word?.[0]?.trs) {
            data.ec.word[0].trs.forEach((tr: any) => {
                const raw = safeString(tr.tr?.[0]?.l?.i?.[0]);
@@ -315,9 +304,7 @@ export default defineBackground(() => {
       };
   };
 
-  // --- 3. Fetch Dictionary Logic ---
   const fetchAndParse = async (word: string): Promise<RichDictionaryResult | null> => {
-      // Force Youdao priority for this rich modal
       const dictionaries = await dictionariesStorage.getValue();
       const youdao = dictionaries.find(d => d.id === 'youdao' && d.isEnabled) || dictionaries.find(d => d.id === 'youdao');
 

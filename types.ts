@@ -51,6 +51,21 @@ export interface OriginalTextConfig {
   style: StyleConfig;
 }
 
+export interface PhraseItem {
+  text: string;
+  trans: string;
+}
+
+export interface RootItem {
+  root: string;
+  words: { text: string; trans: string }[];
+}
+
+export interface SynonymItem {
+  text: string;
+  trans: string;
+}
+
 export interface WordEntry {
   id: string;
   text: string; // 单词拼写
@@ -80,6 +95,11 @@ export interface WordEntry {
   importance?: number; // 柯林斯星级/重要程度 (1-5)
   cocaRank?: number; // COCA 词频排名
   
+  // Public Info (Read-only reference data)
+  phrases?: PhraseItem[];
+  roots?: RootItem[];
+  synonyms?: SynonymItem[];
+
   // Media
   image?: string; // Selected image URL
   video?: {
@@ -105,11 +125,11 @@ export interface RichDictionaryResult {
     
     // Public Info
     inflections: string[]; // Common inflections
-    phrases: { text: string; trans: string }[];
-    roots: { root: string; words: { text: string; trans: string }[] }[];
-    synonyms: { text: string; trans: string }[];
+    phrases: PhraseItem[];
+    roots: RootItem[];
+    synonyms: SynonymItem[];
     
-    images: string[]; // Multiple images
+    images: string[]; // Multiple images available for selection
     video?: { title: string; url: string; cover: string };
     
     // Split Cards
