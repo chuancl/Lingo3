@@ -1,108 +1,54 @@
 
-import { TranslationEngine, WordEntry, WordCategory } from "../types";
+import { RichDictionaryResult, WordEntry } from "../types";
 import { browser } from "wxt/browser";
 
-interface DictionaryResult {
-  text: string;
-  phoneticUs: string;
-  phoneticUk: string;
-  inflections?: string[];
-  tags: string[]; 
-  importance: number; 
-  cocaRank: number; // New
-  meanings: {
-    translation: string;
-    partOfSpeech?: string; 
-    englishDefinition: string; 
-    contextSentence: string;
-    mixedSentence: string;
-    dictionaryExample: string;
-    dictionaryExampleTranslation?: string; 
-    dictionaryExampleAudioUrl?: string; // New
-  }[];
-}
-
-const similarity = (s1: string, s2: string): number => {
-  const longer = s1.length > s2.length ? s1 : s2;
-  const shorter = s1.length > s2.length ? s2 : s1;
-  if (longer.length === 0) return 1.0;
-  return (longer.length - editDistance(longer, shorter)) / longer.length;
-};
-
-const editDistance = (s1: string, s2: string) => {
-  s1 = s1.toLowerCase();
-  s2 = s2.toLowerCase();
-  const costs = new Array();
-  for (let i = 0; i <= s1.length; i++) {
-    let lastValue = i;
-    for (let j = 0; j <= s2.length; j++) {
-      if (i == 0) costs[j] = j;
-      else {
-        if (j > 0) {
-          let newValue = costs[j - 1];
-          if (s1.charAt(i - 1) != s2.charAt(j - 1))
-            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-          costs[j - 1] = lastValue;
-          lastValue = newValue;
-        }
-      }
-    }
-    if (i > 0) costs[s2.length] = lastValue;
-  }
-  return costs[s2.length];
-};
-
-export const fetchWordDetails = async (
-  word: string, 
-  preferredTranslation: string | undefined, 
-  engine: TranslationEngine
-): Promise<Partial<WordEntry>[]> => {
-  
+export const fetchRichWordDetails = async (word: string): Promise<RichDictionaryResult> => {
   const response = await browser.runtime.sendMessage({
-    action: 'LOOKUP_WORD',
-    engine: engine,
-    text: word,
-    preferredTranslation: preferredTranslation
+    action: 'LOOKUP_WORD_RICH',
+    text: word
   });
 
-  if (!response) throw new Error("后台服务未响应，请刷新页面或重新加载扩展。");
+  if (!response) throw new Error("Service unavailable");
   if (!response.success) throw new Error(response.error || "Lookup failed");
 
-  const result: DictionaryResult = response.data;
+  return response.data;
+};
 
-  // Filter logic
-  let selectedMeanings = result.meanings;
+/**
+ * Adapter for bulk import in WordManager.tsx.
+ * Maps the RichDictionaryResult to an array of Partial<WordEntry> to satisfy the legacy import logic.
+ */
+export const fetchWordDetails = async (word: string, preferredTranslation?: string, _engine?: any): Promise<Partial<WordEntry>[]> => {
+    try {
+        const result = await fetchRichWordDetails(word);
+        
+        let validMeanings = result.meanings;
+        
+        // If a preferred translation is provided (e.g. from file import), try to find the matching meaning card
+        if (preferredTranslation) {
+             const match = result.meanings.find(m => m.defCn.includes(preferredTranslation));
+             if (match) validMeanings = [match];
+        }
 
-  if (preferredTranslation && preferredTranslation.trim()) {
-    const sorted = [...result.meanings].sort((a, b) => {
-        const scoreA = similarity(a.translation, preferredTranslation);
-        const scoreB = similarity(b.translation, preferredTranslation);
-        return scoreB - scoreA;
-    });
-    if (sorted.length > 0) selectedMeanings = [sorted[0]];
-  } else {
-    selectedMeanings = selectedMeanings.filter(m => m.translation && m.translation.trim().length > 0);
-  }
+        // Map meanings to WordEntry objects
+        return validMeanings.map(m => ({
+            text: result.text,
+            phoneticUs: result.phoneticUs,
+            phoneticUk: result.phoneticUk,
+            translation: m.defCn,
+            englishDefinition: m.defEn,
+            contextSentence: '', 
+            mixedSentence: '',
+            dictionaryExample: m.example,
+            dictionaryExampleTranslation: m.exampleTrans,
+            inflections: [...new Set([...result.inflections, ...m.inflections])],
+            tags: m.tags,
+            importance: m.importance,
+            cocaRank: m.cocaRank
+        }));
 
-  const timestamp = Date.now();
-  
-  return selectedMeanings.map((m, idx) => ({
-    text: result.text,
-    phoneticUs: result.phoneticUs,
-    phoneticUk: result.phoneticUk,
-    inflections: result.inflections || [],
-    tags: result.tags || [],
-    importance: result.importance || 0,
-    cocaRank: result.cocaRank || 0,
-    
-    translation: m.translation,
-    englishDefinition: m.englishDefinition,
-    contextSentence: m.contextSentence,
-    mixedSentence: m.mixedSentence,
-    dictionaryExample: m.dictionaryExample,
-    dictionaryExampleTranslation: m.dictionaryExampleTranslation,
-    dictionaryExampleAudioUrl: m.dictionaryExampleAudioUrl,
-    
-    addedAt: timestamp + idx
-  }));
+    } catch (e) {
+        // Fallback or silence error for bulk import flow
+        return [];
+    }
 };

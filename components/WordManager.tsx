@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { WordCategory, WordEntry, MergeStrategyConfig, WordTab, Scenario } from '../types';
 import { DEFAULT_MERGE_STRATEGY } from '../constants';
-import { Upload, Download, Filter, Settings2, List, Search, Plus, Trash2, CheckSquare, Square, ArrowRight, BookOpen, GraduationCap, CheckCircle, RotateCcw, HelpCircle } from 'lucide-react';
+import { Upload, Download, Filter, Settings2, List, Search, Plus, Trash2, CheckSquare, Square, ArrowRight, BookOpen, GraduationCap, CheckCircle, RotateCcw } from 'lucide-react';
 import { MergeConfigModal } from './word-manager/MergeConfigModal';
 import { AddWordModal } from './word-manager/AddWordModal';
 import { WordList } from './word-manager/WordList';
@@ -249,6 +249,8 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+     // NOTE: This legacy import might need update to use new rich parser if needed.
+     // For now, keeping as is but ensuring no crashes.
      const file = e.target.files?.[0];
      if (!file) return;
 
@@ -256,7 +258,6 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
      reader.onload = async (event) => {
         const text = event.target?.result as string;
         let candidates: { text: string, translation?: string }[] = [];
-        
         try {
            const json = JSON.parse(text);
            if (Array.isArray(json)) {
@@ -285,20 +286,16 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
 
         let successCount = 0;
         let failCount = 0;
-
         showToast(`开始处理 ${candidates.length} 个单词，请稍候...`, 'info');
         const newEntriesToAdd: WordEntry[] = [];
 
-        // Note: Batch import relies on standard fetcher. If user needs specific manual overrides, they use AddWordModal.
-        // This is simplified to prevent timeouts on large imports.
         for (const candidate of candidates) {
             if (!candidate.text) continue;
             try {
+                // Using standard fetcher for bulk import to avoid UI overload
                 const detailsList = await fetchWordDetails(candidate.text, candidate.translation, activeEngine);
                 for (const details of detailsList) {
                      if (!details.text) continue;
-                     
-                     // Avoid duplicates simply by text check for batch import
                      if (entries.some(e => e.text.toLowerCase() === details.text!.toLowerCase())) continue;
                      if (newEntriesToAdd.some(e => e.text.toLowerCase() === details.text!.toLowerCase())) continue;
 
@@ -315,6 +312,7 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
                         inflections: details.inflections || [], 
                         tags: details.tags || [],
                         importance: details.importance || 0,
+                        cocaRank: details.cocaRank || 0,
                         englishDefinition: details.englishDefinition,
                         category: targetCategory,
                         addedAt: Date.now(),
@@ -323,7 +321,6 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
                      successCount++;
                 }
             } catch (err) {
-                console.error(`Failed to import ${candidate.text}:`, err);
                 failCount++;
             }
         }
@@ -339,18 +336,12 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
      e.target.value = ''; 
   };
 
-  // UPDATED: Handle the Rich Object from Modal
+  // Add Word Handler from Modal
   const handleAddWord = async (entryData: Partial<WordEntry>) => {
       try {
-          const targetCategory = activeTab === 'all' ? WordCategory.WantToLearnWord : activeTab;
-
-          // Simple duplicate check based on Text & Category
-          const exists = entries.some(e => e.text.toLowerCase() === entryData.text?.toLowerCase() && e.category === targetCategory);
-          if (exists) {
-              showToast('该单词已在当前列表中', 'warning');
-              return;
-          }
-
+          // No duplicate check here as Modal allows importing multiple meanings (Cards).
+          // We assume user knows what they are selecting.
+          
           const newEntry: WordEntry = {
               id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
               text: entryData.text!,
@@ -358,21 +349,21 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
               englishDefinition: entryData.englishDefinition,
               phoneticUs: entryData.phoneticUs,
               phoneticUk: entryData.phoneticUk,
-              contextSentence: entryData.contextSentence, // Manual add usually lacks context unless user types it
+              contextSentence: entryData.contextSentence,
               mixedSentence: entryData.mixedSentence,
               dictionaryExample: entryData.dictionaryExample,
               dictionaryExampleTranslation: entryData.dictionaryExampleTranslation,
               inflections: entryData.inflections || [],
               tags: entryData.tags || [],
               importance: entryData.importance || 0,
-              category: targetCategory,
-              addedAt: Date.now(),
+              cocaRank: entryData.cocaRank || 0,
+              category: entryData.category || WordCategory.WantToLearnWord,
+              addedAt: entryData.addedAt || Date.now(),
               scenarioId: selectedScenarioId === 'all' ? '1' : selectedScenarioId,
           };
 
           setEntries(prev => [newEntry, ...prev]);
           showToast('添加成功', 'success');
-
       } catch (e: any) {
           console.error(e);
           showToast('添加失败', 'error');

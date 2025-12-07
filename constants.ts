@@ -78,7 +78,7 @@ export const INITIAL_DICTIONARIES: DictionaryEngine[] = [
     endpoint: 'https://dict.youdao.com/jsonapi', 
     link: 'https://dict.youdao.com/',
     isEnabled: true, 
-    priority: 1, // PRIMARY - Updated as requested
+    priority: 1, // Youdao is #1
     description: '网易出品，数据最全，包含音频、考试等级、柯林斯星级等。'
   },
   { 
@@ -87,7 +87,7 @@ export const INITIAL_DICTIONARIES: DictionaryEngine[] = [
     endpoint: 'https://dict-co.iciba.com/api/dictionary.php',
     link: 'http://www.iciba.com/',
     isEnabled: true, 
-    priority: 2, // SECONDARY
+    priority: 2, // ICBA is #2
     description: '经典词典，包含英/美音标及双语例句。'
   },
   { 

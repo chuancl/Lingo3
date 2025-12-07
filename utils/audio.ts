@@ -26,8 +26,7 @@ export const preloadVoices = () => {
 export const stopAudio = () => {
   const synth = window.speechSynthesis;
   synth.cancel();
-  // Also stop any HTML audio elements if we were tracking them globally, 
-  // but for now, individual components handle their own Audio object refs.
+  // Also stop any HTML audio elements if we were tracking them globally
 };
 
 export const unlockAudio = () => {
@@ -54,28 +53,6 @@ const waitForVoices = (): Promise<SpeechSynthesisVoice[]> => {
 };
 
 /**
- * Plays word audio.
- * 1. Tries to construct Youdao Online URL: https://dict.youdao.com/dictvoice?audio={word}&type={1|2}
- * 2. Falls back to Browser TTS.
- */
-export const playWordAudio = async (text: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
-    if (!text) return;
-    
-    // Type 1 = UK, Type 2 = US
-    const type = accent === 'UK' ? 1 : 2;
-    // Youdao URL requires encoded text
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
-
-    try {
-        await playUrl(url, speed);
-    } catch (e) {
-        // Fallback to TTS
-        console.warn("Online audio failed, falling back to TTS", e);
-        playTextToSpeech(text, accent, speed);
-    }
-};
-
-/**
  * Plays arbitrary URL audio with a promise wrapper.
  */
 export const playUrl = (url: string, playbackRate: number = 1.0): Promise<void> => {
@@ -89,32 +66,6 @@ export const playUrl = (url: string, playbackRate: number = 1.0): Promise<void> 
             playPromise.catch(error => reject(error));
         }
     });
-};
-
-/**
- * Smart Sentence Player.
- * 1. If explicit audioUrl provided (e.g. from dictionary), play it.
- * 2. If not, try Youdao dictvoice (often works for short sentences too).
- * 3. Fallback to TTS.
- */
-export const playSentenceAudio = async (text: string, explicitUrl?: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
-    if (explicitUrl) {
-        try {
-            await playUrl(explicitUrl, speed);
-            return;
-        } catch(e) { console.warn("Explicit URL failed"); }
-    }
-
-    // Try Youdao for sentences (it handles phrases well)
-    // Note: Youdao dictvoice works for sentences too, usually type=2 (US) is safer default
-    const type = accent === 'UK' ? 1 : 2;
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
-    
-    try {
-        await playUrl(url, speed);
-    } catch (e) {
-        playTextToSpeech(text, accent, speed);
-    }
 };
 
 /**
@@ -143,4 +94,48 @@ export const playTextToSpeech = async (text: string, accent: 'US' | 'UK' = 'US',
   } catch (err) {
       console.error("TTS Error", err);
   }
+};
+
+/**
+ * Smart Audio Player: Youdao Online Stream -> TTS Fallback
+ */
+export const playWordAudio = async (text: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
+    if (!text) return;
+    
+    // Type 1 = UK, Type 2 = US (Youdao convention)
+    const type = accent === 'UK' ? 1 : 2;
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
+
+    try {
+        await playUrl(url, speed);
+    } catch (e) {
+        console.warn(`Online audio failed for ${text}, falling back to TTS`, e);
+        playTextToSpeech(text, accent, speed);
+    }
+};
+
+/**
+ * Smart Sentence Player.
+ * 1. Explicit URL (if provided, though we are deprecating stored URLs)
+ * 2. Youdao dictvoice (handles sentences well)
+ * 3. Fallback to TTS.
+ */
+export const playSentenceAudio = async (text: string, explicitUrl?: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
+    // If an explicit URL is provided (e.g. legacy data), try it first
+    if (explicitUrl) {
+        try {
+            await playUrl(explicitUrl, speed);
+            return;
+        } catch(e) { console.warn("Explicit URL failed"); }
+    }
+
+    // Try Youdao for sentences
+    const type = accent === 'UK' ? 1 : 2;
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
+    
+    try {
+        await playUrl(url, speed);
+    } catch (e) {
+        playTextToSpeech(text, accent, speed);
+    }
 };

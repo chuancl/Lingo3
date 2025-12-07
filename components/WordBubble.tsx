@@ -77,8 +77,8 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
     playWordAudio(entry.text, config.autoPronounceAccent, ttsSpeed);
   };
 
-  const playSentence = (text: string, audioUrl?: string) => {
-     playSentenceAudio(text, audioUrl, config.autoPronounceAccent, ttsSpeed);
+  const playSentence = (text: string) => {
+     playSentenceAudio(text, undefined, config.autoPronounceAccent, ttsSpeed);
   };
 
   // Position calculation logic remains the same...
@@ -161,7 +161,7 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
         {config.showDictTranslation && (<div style={meaningStyle}>{entry.translation}</div>)}
         {config.showOriginalText && (<div style={originalBoxStyle}><span style={{ marginRight: '8px', color: '#94a3b8', userSelect: 'none' }}>原文:</span><span style={{ fontWeight: '500' }}>{originalText || '...'}</span></div>)}
         {config.showDictExample && entry.dictionaryExample && (
-            <div style={exampleStyle} onClick={() => playSentence(entry.dictionaryExample!, entry.dictionaryExampleAudioUrl)} title="点击朗读例句">
+            <div style={exampleStyle} onClick={() => playSentence(entry.dictionaryExample!)} title="点击朗读例句">
                 {entry.dictionaryExample}
             </div>
         )}

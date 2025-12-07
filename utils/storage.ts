@@ -50,7 +50,6 @@ export const seedInitialData = async () => {
   // Only seed if empty
   if (existing.length === 0) {
     const now = Date.now();
-    const DAY = 86400000;
     
     // Sample data upgraded to new schema
     const sampleData: WordEntry[] = [
@@ -68,8 +67,10 @@ export const seedInitialData = async () => {
         dictionaryExampleTranslation: '他在餐厅预订了一张桌子。',
         phoneticUs: '/bʊk/',
         phoneticUk: '/bʊk/',
+        inflections: ['booking', 'booked', 'books'],
         tags: ['Oxford 3000', 'CET4', 'Middle School'],
-        importance: 5
+        importance: 5,
+        cocaRank: 320
       },
       {
         id: 'seed-ephemeral',
@@ -86,7 +87,8 @@ export const seedInitialData = async () => {
         phoneticUs: '/əˈfem(ə)rəl/',
         phoneticUk: '/ɪˈfɛm(ə)r(ə)l/',
         tags: ['GRE', 'SAT', 'Advanced'],
-        importance: 2
+        importance: 2,
+        cocaRank: 12000
       }
     ];
     await entriesStorage.setValue(sampleData);

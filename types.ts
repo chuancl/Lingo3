@@ -54,12 +54,12 @@ export interface WordEntry {
   id: string;
   text: string; // 单词拼写
   
-  // Phonetics (Audio is now generated dynamically)
+  // Phonetics (Audio is generated dynamically via utils/audio.ts)
   phoneticUs?: string; // 美式音标
   phoneticUk?: string; // 英式音标
 
   // Definitions
-  translation?: string; // 中文释义 (多条用分号或换行分隔)
+  translation?: string; // 中文释义
   englishDefinition?: string; // 英文释义
 
   // Sentences
@@ -71,7 +71,7 @@ export interface WordEntry {
   // Examples
   dictionaryExample?: string; // 英文例句
   dictionaryExampleTranslation?: string; // 例句对应中文
-  dictionaryExampleAudioUrl?: string; // 例句发音 (Real audio from dict)
+  // dictionaryExampleAudioUrl removed - generated dynamically
 
   // Morphology & Metadata
   inflections?: string[]; // 词态变化 (eating, ate, eaten...)
@@ -85,6 +85,37 @@ export interface WordEntry {
   sourceTimestamp?: number;
   scenarioId?: string;
   category: WordCategory;
+}
+
+// --- New Types for Rich Data Parsing (Add Word Modal) ---
+
+export interface RichDictionaryResult {
+    text: string;
+    phoneticUs: string;
+    phoneticUk: string;
+    
+    // Public Info
+    inflections: string[]; // Common inflections
+    phrases: { text: string; trans: string }[];
+    roots: { root: string; words: { text: string; trans: string }[] }[];
+    synonyms: { text: string; trans: string }[];
+    picUrl?: string;
+    video?: { title: string; url: string; cover: string };
+    
+    // Split Cards
+    meanings: DictionaryMeaningCard[];
+}
+
+export interface DictionaryMeaningCard {
+    partOfSpeech: string;
+    defCn: string;
+    defEn: string;
+    inflections: string[]; // Specific to this meaning
+    tags: string[];
+    importance: number;
+    cocaRank: number;
+    example: string;
+    exampleTrans: string;
 }
 
 export interface Scenario {
@@ -170,7 +201,6 @@ export interface WordInteractionConfig {
   autoPronounceAccent: 'US' | 'UK';
   autoPronounceCount: number;
 
-  // New Fields
   dismissDelay: number; // ms to wait before hiding bubble
   allowMultipleBubbles: boolean; // if true, new bubbles don't close old ones
 }
@@ -201,7 +231,6 @@ export interface PageWidgetConfig {
   showMeaning: boolean;
   showMultiExamples: boolean;
   
-  // New Display Toggles
   showExampleTranslation: boolean; // Show translation for Dictionary Examples
   showContextTranslation: boolean; // Show translation for Context Sentences
   showInflections: boolean; // New: Show inflections in widget

@@ -73,11 +73,11 @@ export const WordList: React.FC<WordListProps> = ({
 
                       <div className="ml-auto sm:ml-0 self-start sm:self-center flex flex-col items-end gap-1">
                            <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${primary.category === WordCategory.KnownWord ? 'bg-green-50 text-green-700 border-green-200' : primary.category === WordCategory.WantToLearnWord ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{primary.category}</span>
-                           {primary.cocaRank && primary.cocaRank > 0 && (
+                           {primary.cocaRank && primary.cocaRank > 0 ? (
                                <span className="text-[10px] text-slate-400 flex items-center" title="COCA 词频排名">
                                    <BarChart2 className="w-3 h-3 mr-1"/> #{primary.cocaRank}
                                </span>
-                           )}
+                           ) : null}
                       </div>
                     </div>
 
@@ -128,7 +128,7 @@ export const WordList: React.FC<WordListProps> = ({
                                   }
                                   if (item.id === 'dictionary' && entry.dictionaryExample) {
                                      return (
-                                        <div key={`${entry.id}-dictionary`} className="bg-slate-50 p-3.5 rounded-lg border border-slate-100 relative cursor-pointer hover:bg-slate-100 transition" onClick={(e) => { e.stopPropagation(); playSentenceAudio(entry.dictionaryExample!, entry.dictionaryExampleAudioUrl, 'US', ttsSpeed); }} title="点击朗读例句">
+                                        <div key={`${entry.id}-dictionary`} className="bg-slate-50 p-3.5 rounded-lg border border-slate-100 relative cursor-pointer hover:bg-slate-100 transition" onClick={(e) => { e.stopPropagation(); playSentenceAudio(entry.dictionaryExample!, undefined, 'US', ttsSpeed); }} title="点击朗读例句">
                                           <div className="absolute left-0 top-3 w-1 h-8 bg-emerald-500 rounded-r"></div>
                                           {idx === 0 && <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-2">词典例句 (Dictionary)</span>}
                                           <p className="text-sm text-slate-600 italic leading-relaxed pl-2">{entry.dictionaryExample}</p>
