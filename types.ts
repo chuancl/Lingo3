@@ -80,6 +80,14 @@ export interface WordEntry {
   importance?: number; // 柯林斯星级/重要程度 (1-5)
   cocaRank?: number; // COCA 词频排名
   
+  // Media
+  image?: string; // Selected image URL
+  video?: {
+      title: string;
+      url: string;
+      cover?: string;
+  };
+
   // System
   addedAt: number;
   sourceUrl?: string;

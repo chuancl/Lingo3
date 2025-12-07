@@ -1,4 +1,5 @@
 
+
 import { defineBackground } from 'wxt/sandbox';
 import { browser } from 'wxt/browser';
 import { callTencentTranslation } from '../utils/api';
@@ -156,13 +157,16 @@ export default defineBackground(() => {
 
       // 7. Video (word_video)
       let video = undefined;
-      if (data.word_video?.video?.[0]) {
+      if (data.word_video?.video && Array.isArray(data.word_video.video)) {
+          // Youdao structure sometimes returns an array
           const v = data.word_video.video[0];
-          const url = safeString(v.url);
-          const cover = safeString(v.cover);
-          const title = safeString(v.title);
-          if (url) {
-              video = { title: title || '讲解视频', url, cover };
+          if (v) {
+              const url = safeString(v.url || v.video_url); // Check multiple keys
+              const cover = safeString(v.cover);
+              const title = safeString(v.title);
+              if (url) {
+                  video = { title: title || '视频讲解', url, cover };
+              }
           }
       }
 
