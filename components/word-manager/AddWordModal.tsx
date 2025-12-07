@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Wand2, Volume2, Save, X, Search, Image as ImageIcon, Video, Layers, Hash, BarChart2, Star, Youtube, ExternalLink } from 'lucide-react';
+import { Loader2, Wand2, Volume2, Save, X, Search, Image as ImageIcon, Video, Layers, Hash, BarChart2, Star, Youtube, ExternalLink, Book } from 'lucide-react';
 import { WordEntry, RichDictionaryResult, DictionaryMeaningCard, WordCategory } from '../../types';
 import { fetchRichWordDetails } from '../../utils/dictionary-service';
 import { playWordAudio } from '../../utils/audio';
@@ -155,16 +155,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                 {/* Left: Basic Info */}
                                 <div className="flex-1">
                                     <div className="flex items-baseline gap-4 mb-2">
-                                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{searchResult.text}</h2>
+                                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{String(searchResult.text)}</h2>
                                         <div className="flex items-center gap-3 text-sm text-slate-500 font-mono">
                                             {searchResult.phoneticUk && (
                                                 <span className="flex items-center cursor-pointer hover:text-blue-600 transition" onClick={() => playWordAudio(searchResult.text, 'UK')}>
-                                                    <span className="text-[10px] mr-1 text-slate-400 font-sans">UK</span> {searchResult.phoneticUk} <Volume2 className="w-3.5 h-3.5 ml-1 opacity-50"/>
+                                                    <span className="text-[10px] mr-1 text-slate-400 font-sans">UK</span> {String(searchResult.phoneticUk)} <Volume2 className="w-3.5 h-3.5 ml-1 opacity-50"/>
                                                 </span>
                                             )}
                                             {searchResult.phoneticUs && (
                                                 <span className="flex items-center cursor-pointer hover:text-blue-600 transition" onClick={() => playWordAudio(searchResult.text, 'US')}>
-                                                    <span className="text-[10px] mr-1 text-slate-400 font-sans">US</span> {searchResult.phoneticUs} <Volume2 className="w-3.5 h-3.5 ml-1 opacity-50"/>
+                                                    <span className="text-[10px] mr-1 text-slate-400 font-sans">US</span> {String(searchResult.phoneticUs)} <Volume2 className="w-3.5 h-3.5 ml-1 opacity-50"/>
                                                 </span>
                                             )}
                                         </div>
@@ -180,16 +180,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                     )}
 
                                     {/* Roots / Phrases / Synonyms Grid */}
-                                    <div className="grid grid-cols-1 gap-4 mt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                         {/* Phrases */}
                                         {searchResult.phrases.length > 0 && (
                                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">常用短语 (Phrases)</span>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                                <div className="flex flex-col gap-1.5">
                                                     {searchResult.phrases.slice(0, 8).map((p, i) => (
                                                         <div key={i} className="text-xs flex gap-2">
-                                                            <span className="font-medium text-slate-700">{p.text}</span>
-                                                            <span className="text-slate-500">{p.trans}</span>
+                                                            <span className="font-medium text-slate-700">{String(p.text)}</span>
+                                                            <span className="text-slate-500 truncate">{String(p.trans)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -200,33 +200,44 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                         {searchResult.synonyms.length > 0 && (
                                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">近义词 (Synonyms)</span>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                                    {searchResult.synonyms.slice(0, 12).map((s, i) => (
-                                                        <div key={i} className="text-xs flex gap-1" title={s.trans}>
-                                                            <span className="text-slate-600">{s.text}</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {searchResult.synonyms.slice(0, 10).map((s, i) => (
+                                                        <div key={i} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded" title={String(s.trans)}>
+                                                            <span className="text-slate-600">{String(s.text)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    {/* Roots (New) */}
+                                    {searchResult.roots.length > 0 && (
+                                        <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">词根 (Roots)</span>
+                                            <div className="space-y-2">
+                                                {searchResult.roots.map((r, i) => (
+                                                    <div key={i} className="text-xs">
+                                                        <span className="font-mono text-blue-600 font-bold mr-2">{String(r.root)}</span>
+                                                        <span className="text-slate-500">
+                                                            {r.words.map(w => String(w.text)).join(', ')}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Right: Media (Images & Video) */}
-                                <div className="w-full md:w-64 shrink-0 flex flex-col gap-4">
-                                    {/* Images Gallery (First + Thumbnails) */}
+                                {/* Right: Media (Image & Video) */}
+                                <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
+                                    {/* Single Image Display as requested */}
                                     {searchResult.images.length > 0 && (
-                                        <div className="space-y-2">
-                                            <div className="w-full aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative group">
-                                                <img src={searchResult.images[0]} alt="Word" className="w-full h-full object-cover" />
-                                            </div>
+                                        <div className="w-full aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-50 relative group">
+                                            <img src={searchResult.images[0]} alt="Word" className="w-full h-full object-cover" />
                                             {searchResult.images.length > 1 && (
-                                                <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-                                                    {searchResult.images.slice(1, 4).map((img, i) => (
-                                                        <div key={i} className="w-12 h-12 shrink-0 rounded border border-slate-200 overflow-hidden opacity-70 hover:opacity-100 cursor-pointer">
-                                                            <img src={img} className="w-full h-full object-cover" />
-                                                        </div>
-                                                    ))}
+                                                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm">
+                                                    + {searchResult.images.length - 1} more
                                                 </div>
                                             )}
                                         </div>
@@ -238,7 +249,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                              {searchResult.video.cover && <img src={searchResult.video.cover} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition"/>}
                                              <a href={searchResult.video.url} target="_blank" rel="noopener noreferrer" className="relative z-10 flex flex-col items-center text-white">
                                                  <Youtube className="w-8 h-8 mb-1 drop-shadow-md" />
-                                                 <span className="text-[10px] font-bold text-center px-2 line-clamp-1">{searchResult.video.title}</span>
+                                                 <span className="text-[10px] font-bold text-center px-2 line-clamp-1">{String(searchResult.video.title)}</span>
                                              </a>
                                         </div>
                                     )}
@@ -279,7 +290,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                         <div className="pr-8">
                                             {/* Definition */}
                                             <div className="flex items-baseline gap-2 mb-2">
-                                                <span className="font-serif font-bold text-xl text-slate-900">{card.partOfSpeech}</span>
+                                                <span className="font-serif font-bold text-xl text-slate-900">{String(card.partOfSpeech)}</span>
                                                 <span className="text-lg text-slate-800">{String(card.defCn)}</span>
                                             </div>
                                             {card.defEn && <p className="text-sm text-slate-500 mb-3 font-medium">{String(card.defEn)}</p>}
@@ -288,7 +299,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                             <div className="flex flex-wrap gap-3 mb-4 items-center">
                                                 {card.importance > 0 && (
                                                     <span className="flex items-center px-2 py-1 rounded text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100" title="Collins Level">
-                                                        <Star className="w-3 h-3 mr-1 fill-current"/> {card.importance}
+                                                        <Star className="w-3 h-3 mr-1 fill-current"/> {card.importance} 星
                                                     </span>
                                                 )}
                                                 

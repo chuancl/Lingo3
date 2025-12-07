@@ -33,6 +33,7 @@ export default defineBackground(() => {
       
       // If it's an object, try to extract known text-bearing properties to avoid [object Object]
       if (typeof input === 'object') {
+          // This list covers common Youdao text fields
           const candidates = [
               input.value, 
               input.text, 
@@ -65,14 +66,8 @@ export default defineBackground(() => {
       return forms.map(f => safeString(f)).filter(f => f.trim().length > 0);
   };
 
-  // --- 1. Fetch COCA Rank (Stub) ---
-  const fetchCocaRank = async (word: string): Promise<number> => {
-      // User requested to leave this empty/manual for now.
-      return 0;
-  };
-
   // --- 2. Deep Parse Youdao JSON ---
-  const parseYoudaoDeep = (data: any, cocaRank: number): RichDictionaryResult => {
+  const parseYoudaoDeep = (data: any): RichDictionaryResult => {
       
       // 1. Phonetics
       let phoneticUs = "";
@@ -144,7 +139,7 @@ export default defineBackground(() => {
           });
       }
 
-      // 6. Pictures (pic_dict - fetch all)
+      // 6. Pictures (pic_dict)
       const images: string[] = [];
       if (data.pic_dict?.pic) {
           data.pic_dict.pic.forEach((p: any) => {
@@ -165,74 +160,70 @@ export default defineBackground(() => {
           }
       }
 
-      // 8. Meaning Cards - Logic: Collins PRIMARY, fallback ExpandEC
+      // 8. Meaning Cards - Logic: Collins PRIMARY ONLY if available, else ExpandEC
       const meanings: DictionaryMeaningCard[] = [];
       const globalTags = normalizeTags(data.ec?.exam_type || []); // Global exams
-      
-      // --- Logic A: Collins Primary ---
-      // We look for valid content here first.
+      const star = data.collins?.collins_entries?.[0]?.star || 0; // Collins Star
+
+      let hasCollinsData = false;
+
+      // --- LOGIC A: Collins Primary ---
       if (data.collins_primary?.gramcat && data.collins_primary.gramcat.length > 0) {
-          const star = data.collins?.collins_entries?.[0]?.star || 0;
+          hasCollinsData = true;
           
           data.collins_primary.gramcat.forEach((cat: any) => {
                const pos = safeString(cat.partofspeech);
-               // Specific forms for this meaning, sometimes different from global
+               // Specific forms for this meaning
                const forms = normalizeForms(cat.forms || []); 
                
-               if (cat.audiences) {
-                   cat.audiences.forEach((aud: any) => {
-                       if (aud.senses) {
-                           aud.senses.forEach((sense: any) => {
-                               // PATH: collins_primary.gramcat[0].senses[0].word (or chn_tran)
-                               let defCn = safeString(sense.word); 
-                               // Fallback if 'word' is empty (rare in this structure) or looks like English (headword repetition)
-                               if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) {
-                                   defCn = safeString(sense.chn_tran);
-                               }
-                               
-                               // PATH: collins_primary.gramcat[0].senses[0].definition
-                               const defEn = safeString(sense.definition);
-                               
-                               // PATH: collins_primary.gramcat[0].senses[0].examples[0].example
-                               const exObj = sense.examples?.[0];
-                               const example = exObj ? safeString(exObj.ex) : '';
-                               
-                               // PATH: collins_primary.gramcat[0].senses[0].examples[0].sense.word (User Request)
-                               // Standard is exObj.tran. We try User path, then Standard.
-                               let exampleTrans = '';
-                               if (exObj) {
-                                  // User specific path attempt:
-                                  exampleTrans = safeString(exObj.sense?.word); 
-                                  if (!exampleTrans) {
-                                      // Standard Youdao path
-                                      exampleTrans = safeString(exObj.tran);
-                                  }
-                               }
+               if (cat.senses) {
+                    cat.senses.forEach((sense: any) => {
+                        // User Request: collins_primary.gramcat[0].senses[0].word
+                        let defCn = safeString(sense.word); 
+                        // Fallback to chn_tran if word is empty or looks English (headword repetition)
+                        if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) {
+                            defCn = safeString(sense.chn_tran);
+                        }
 
-                               // Only add if we have at least a definition
-                               if (defCn || defEn) {
-                                   meanings.push({
-                                       partOfSpeech: pos,
-                                       defCn,
-                                       defEn,
-                                       inflections: forms.length > 0 ? forms : inflections, // Use specific forms if avail
-                                       tags: globalTags,
-                                       importance: typeof star === 'number' ? star : 0,
-                                       cocaRank: 0, // Default 0, user fills
-                                       example,
-                                       exampleTrans
-                                   });
-                               }
-                           });
-                       }
-                   });
+                        // User Request: collins_primary.gramcat[0].senses[0].definition
+                        const defEn = safeString(sense.definition);
+                        
+                        // User Request: collins_primary.gramcat[0].senses[0].examples[0].example
+                        const exObj = sense.examples?.[0];
+                        const example = exObj ? safeString(exObj.ex) : '';
+                        
+                        // User Request: collins_primary.gramcat[0].senses[0].examples[0].sense.word
+                        // Fallback: tran
+                        let exampleTrans = '';
+                        if (exObj) {
+                            exampleTrans = safeString(exObj.sense?.word); 
+                            if (!exampleTrans) {
+                                exampleTrans = safeString(exObj.tran);
+                            }
+                        }
+
+                        // Only add if we have at least a definition
+                        if (defCn || defEn) {
+                            meanings.push({
+                                partOfSpeech: pos,
+                                defCn,
+                                defEn,
+                                inflections: forms.length > 0 ? forms : inflections,
+                                tags: globalTags,
+                                importance: typeof star === 'number' ? star : 0,
+                                cocaRank: 0, // Default 0, user fills
+                                example,
+                                exampleTrans
+                            });
+                        }
+                    });
                }
           });
       }
 
-      // --- Logic B: Expand EC (Fallback) ---
-      // ONLY if meanings is empty (Collins didn't yield results)
-      if (meanings.length === 0 && data.expand_ec?.word) {
+      // --- LOGIC B: Expand EC (Fallback) ---
+      // ONLY if NO Collins data was found
+      if (!hasCollinsData && data.expand_ec?.word) {
           data.expand_ec.word.forEach((w: any) => {
               const pos = safeString(w.pos);
               const wfs = w.wfs ? w.wfs.map((x: any) => safeString(x.wf)).filter((s: string) => s) : [];
@@ -241,7 +232,7 @@ export default defineBackground(() => {
                   w.transList.forEach((tr: any) => {
                       // PATH: expand_ec.word[0].transList[0].trans
                       const defCn = safeString(tr.trans) || safeString(tr.content);
-                      const defEn = ''; // User said leave empty if not found
+                      const defEn = ''; // User said leave empty if not found in Collins
 
                       // PATH: expand_ec.word[0].transList[0].content.sents[0].sentOrig
                       const sentObj = tr.content?.sents?.[0];
@@ -313,8 +304,7 @@ export default defineBackground(() => {
               const res = await fetch(`https://dict.youdao.com/jsonapi?q=${encodeURIComponent(word)}`);
               if (res.ok) {
                   const data = await res.json();
-                  const cocaRank = await fetchCocaRank(word); // Likely 0
-                  return parseYoudaoDeep(data, cocaRank);
+                  return parseYoudaoDeep(data);
               }
           } catch (e) {
               console.warn(`Dict Youdao error`, e);
