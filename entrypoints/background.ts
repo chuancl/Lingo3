@@ -26,18 +26,18 @@ export default defineBackground(() => {
   });
 
   // --- Aggressive Sanitization Helper ---
+  // Fixes: "Objects are not valid as a React child" by ensuring deep objects are converted to strings
   const safeString = (input: any): string => {
       if (input === null || input === undefined) return '';
       if (typeof input === 'string') return input;
       if (typeof input === 'number') return String(input);
       
-      // If it's an object, try to extract known text-bearing properties to avoid [object Object]
+      // If it's an object, try to extract known text-bearing properties
       if (typeof input === 'object') {
-          // This list covers common Youdao text fields
+          // Common Youdao keys
           const candidates = [
               input.value, 
               input.text, 
-              input.examType, 
               input.word, 
               input.headword, 
               input.tran,
@@ -45,12 +45,13 @@ export default defineBackground(() => {
               input.def,
               input.content,
               input.sentOrig,
-              input.sentTrans
+              input.sentTrans,
+              input.examType
           ];
           for (const c of candidates) {
-              if (c && typeof c === 'string') return c;
+              if (c && (typeof c === 'string' || typeof c === 'number')) return String(c);
           }
-          return '';
+          return ''; // Discard unknown objects
       }
       return '';
   };
@@ -76,22 +77,27 @@ export default defineBackground(() => {
       const ecWord = data.ec?.word?.[0];
       
       if (simpleWord) {
-          phoneticUs = simpleWord['usphone'] ? `/${safeString(simpleWord['usphone'])}/` : '';
-          phoneticUk = simpleWord['ukphone'] ? `/${safeString(simpleWord['ukphone'])}/` : '';
+          const us = safeString(simpleWord['usphone']);
+          const uk = safeString(simpleWord['ukphone']);
+          phoneticUs = us ? `/${us}/` : '';
+          phoneticUk = uk ? `/${uk}/` : '';
       } else if (ecWord) {
-          phoneticUs = ecWord['usphone'] ? `/${safeString(ecWord['usphone'])}/` : '';
-          phoneticUk = ecWord['ukphone'] ? `/${safeString(ecWord['ukphone'])}/` : '';
+          const us = safeString(ecWord['usphone']);
+          const uk = safeString(ecWord['ukphone']);
+          phoneticUs = us ? `/${us}/` : '';
+          phoneticUk = uk ? `/${uk}/` : '';
       }
 
       // 2. Public Info: Inflections
-      // Prefer collins_primary for base forms, but wfs is often more comprehensive for simple conjugation
+      // Prefer collins_primary for base forms, but wfs is often more comprehensive
       let inflections: string[] = [];
       if (data.collins_primary?.words?.indexforms) {
            inflections = normalizeForms(data.collins_primary.words.indexforms);
-      } else if (data.wfs) {
+      } 
+      if (inflections.length === 0 && data.wfs) {
            data.wfs.forEach((item: any) => { 
                if (item.wf) {
-                   const val = safeString(item.wf);
+                   const val = safeString(item.wf.name || item.wf.value || item.wf);
                    if (val) inflections.push(val);
                }
            });
@@ -160,49 +166,59 @@ export default defineBackground(() => {
           }
       }
 
-      // 8. Meaning Cards - Logic: Collins PRIMARY ONLY if available, else ExpandEC
+      // 8. Meaning Cards
       const meanings: DictionaryMeaningCard[] = [];
       const globalTags = normalizeTags(data.ec?.exam_type || []); // Global exams
-      const star = data.collins?.collins_entries?.[0]?.star || 0; // Collins Star
+      
+      // Collins Star logic
+      let star = 0;
+      if (data.collins?.collins_entries?.[0]?.star) {
+          const s = parseInt(String(data.collins.collins_entries[0].star));
+          if (!isNaN(s)) star = s;
+      }
 
       let hasCollinsData = false;
 
       // --- LOGIC A: Collins Primary ---
-      if (data.collins_primary?.gramcat && data.collins_primary.gramcat.length > 0) {
-          hasCollinsData = true;
-          
+      // Requirement: If collins_primary has data, do not check expand_ec.
+      if (data.collins_primary?.gramcat && Array.isArray(data.collins_primary.gramcat) && data.collins_primary.gramcat.length > 0) {
           data.collins_primary.gramcat.forEach((cat: any) => {
                const pos = safeString(cat.partofspeech);
                // Specific forms for this meaning
                const forms = normalizeForms(cat.forms || []); 
                
-               if (cat.senses) {
+               if (cat.senses && Array.isArray(cat.senses)) {
                     cat.senses.forEach((sense: any) => {
-                        // User Request: collins_primary.gramcat[0].senses[0].word
+                        hasCollinsData = true;
+
+                        // REQUEST: Priority from collins_primary.gramcat[0].senses[0].word
+                        // Note: Youdao sometimes puts Chinese in 'word' for Collins.
                         let defCn = safeString(sense.word); 
-                        // Fallback to chn_tran if word is empty or looks English (headword repetition)
                         if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) {
+                            // Fallback if 'word' is empty or looks like English
                             defCn = safeString(sense.chn_tran);
                         }
 
-                        // User Request: collins_primary.gramcat[0].senses[0].definition
+                        // REQUEST: Priority from collins_primary.gramcat[0].senses[0].definition
                         const defEn = safeString(sense.definition);
                         
-                        // User Request: collins_primary.gramcat[0].senses[0].examples[0].example
+                        // REQUEST: Priority from ...examples[0].example
                         const exObj = sense.examples?.[0];
-                        const example = exObj ? safeString(exObj.ex) : '';
-                        
-                        // User Request: collins_primary.gramcat[0].senses[0].examples[0].sense.word
-                        // Fallback: tran
+                        let example = '';
                         let exampleTrans = '';
+
                         if (exObj) {
-                            exampleTrans = safeString(exObj.sense?.word); 
+                            // Some Youdao responses use 'ex', some 'example'
+                            example = safeString(exObj.example) || safeString(exObj.ex);
+                            
+                            // REQUEST: Priority from ...examples[0].sense.word
+                            // NOTE: 'sense' might be an object inside example
+                            exampleTrans = safeString(exObj.sense?.word);
                             if (!exampleTrans) {
                                 exampleTrans = safeString(exObj.tran);
                             }
                         }
 
-                        // Only add if we have at least a definition
                         if (defCn || defEn) {
                             meanings.push({
                                 partOfSpeech: pos,
@@ -210,8 +226,8 @@ export default defineBackground(() => {
                                 defEn,
                                 inflections: forms.length > 0 ? forms : inflections,
                                 tags: globalTags,
-                                importance: typeof star === 'number' ? star : 0,
-                                cocaRank: 0, // Default 0, user fills
+                                importance: star,
+                                cocaRank: 0, 
                                 example,
                                 exampleTrans
                             });
@@ -222,23 +238,25 @@ export default defineBackground(() => {
       }
 
       // --- LOGIC B: Expand EC (Fallback) ---
-      // ONLY if NO Collins data was found
-      if (!hasCollinsData && data.expand_ec?.word) {
+      // ONLY run if no Collins data was extracted
+      if (!hasCollinsData && data.expand_ec?.word && Array.isArray(data.expand_ec.word)) {
           data.expand_ec.word.forEach((w: any) => {
               const pos = safeString(w.pos);
-              const wfs = w.wfs ? w.wfs.map((x: any) => safeString(x.wf)).filter((s: string) => s) : [];
+              const wfs = w.wfs ? w.wfs.map((x: any) => safeString(x.wf?.name || x.wf)).filter((s: string) => s) : [];
               
-              if (w.transList) {
+              if (w.transList && Array.isArray(w.transList)) {
                   w.transList.forEach((tr: any) => {
-                      // PATH: expand_ec.word[0].transList[0].trans
+                      // REQUEST: expand_ec.word[0].transList[0].trans
                       const defCn = safeString(tr.trans) || safeString(tr.content);
-                      const defEn = ''; // User said leave empty if not found in Collins
+                      
+                      // REQUEST: expand_ec ... English Definition -> Empty
+                      const defEn = ''; 
 
-                      // PATH: expand_ec.word[0].transList[0].content.sents[0].sentOrig
+                      // REQUEST: expand_ec... sentOrig
                       const sentObj = tr.content?.sents?.[0];
                       const example = sentObj ? safeString(sentObj.sentOrig) : '';
                       
-                      // PATH: expand_ec.word[0].transList[0].content.sents[0].sentTrans
+                      // REQUEST: expand_ec... sentTrans
                       const exampleTrans = sentObj ? safeString(sentObj.sentTrans) : '';
 
                       if (defCn) {
@@ -249,7 +267,7 @@ export default defineBackground(() => {
                             inflections: wfs.length > 0 ? wfs : inflections,
                             tags: globalTags,
                             importance: 0,
-                            cocaRank: 0, // Default 0
+                            cocaRank: 0,
                             example,
                             exampleTrans
                         });

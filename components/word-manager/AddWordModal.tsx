@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Loader2, Wand2, Volume2, Save, X, Search, Image as ImageIcon, Video, Layers, Hash, BarChart2, Star, Youtube, ExternalLink, Book } from 'lucide-react';
 import { WordEntry, RichDictionaryResult, DictionaryMeaningCard, WordCategory } from '../../types';
@@ -299,7 +300,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                             <div className="flex flex-wrap gap-3 mb-4 items-center">
                                                 {card.importance > 0 && (
                                                     <span className="flex items-center px-2 py-1 rounded text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100" title="Collins Level">
-                                                        <Star className="w-3 h-3 mr-1 fill-current"/> {card.importance} 星
+                                                        <Star className="w-3 h-3 mr-1 fill-current"/> {String(card.importance)} 星
                                                     </span>
                                                 )}
                                                 
