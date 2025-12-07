@@ -4,7 +4,7 @@ import { defineBackground } from 'wxt/sandbox';
 import { browser } from 'wxt/browser';
 import { callTencentTranslation } from '../utils/api';
 import { dictionariesStorage } from '../utils/storage';
-import { RichDictionaryResult, DictionaryMeaningCard } from '../types';
+import { RichDictionaryResult, DictionaryMeaningCard, PhraseItem, SynonymItem } from '../types';
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(() => {
@@ -45,7 +45,8 @@ export default defineBackground(() => {
               input.content,
               input.sentOrig,
               input.sentTrans,
-              input.examType
+              input.examType,
+              input.i // Youdao weird structure often has value in 'i'
           ];
           for (const c of candidates) {
               if (c && (typeof c === 'string' || typeof c === 'number')) return String(c);
@@ -101,12 +102,25 @@ export default defineBackground(() => {
       }
 
       // 3. Phrases (phrs)
-      const phrases: { text: string; trans: string }[] = [];
-      if (data.phrs?.phrs) {
-          data.phrs.phrs.forEach((p: any) => {
-              const text = safeString(p.headword);
-              const trans = safeString(p.translation);
-              if (text && trans) phrases.push({ text, trans });
+      // Path: phrs.phrs[0].phr.headword.l.i (Text)
+      // Path: phrs.phrs[0].phr.trs[0].tr.l.i (Translation)
+      const phrases: PhraseItem[] = [];
+      if (data.phrs?.phrs && Array.isArray(data.phrs.phrs)) {
+          data.phrs.phrs.forEach((item: any) => {
+              const text = safeString(item.phr?.headword?.l?.i);
+              
+              const transList: string[] = [];
+              if (item.phr?.trs && Array.isArray(item.phr.trs)) {
+                  item.phr.trs.forEach((t: any) => {
+                      const trStr = safeString(t.tr?.l?.i);
+                      if (trStr) transList.push(trStr);
+                  });
+              }
+              const trans = transList.join('; ');
+
+              if (text && trans) {
+                  phrases.push({ text, trans });
+              }
           });
       }
 
@@ -129,14 +143,19 @@ export default defineBackground(() => {
       }
 
       // 5. Synonyms (syno)
-      const synonyms: { text: string; trans: string }[] = [];
-      if (data.syno?.synos) {
+      // Path: syno.synos[0].syno.tran (Meaning)
+      // Path: syno.synos[0].syno.ws (Array of words) -> w (Word text)
+      const synonyms: SynonymItem[] = [];
+      if (data.syno?.synos && Array.isArray(data.syno.synos)) {
           data.syno.synos.forEach((group: any) => {
-              if (group.ws) {
-                  group.ws.forEach((w: any) => {
-                       const text = safeString(w.w);
-                       const trans = safeString(w.tran);
-                       if (text && trans) synonyms.push({ text, trans });
+              const meaning = safeString(group.syno?.tran);
+              
+              if (group.syno?.ws && Array.isArray(group.syno.ws)) {
+                  group.syno.ws.forEach((wItem: any) => {
+                       const text = safeString(wItem.w);
+                       if (text) {
+                           synonyms.push({ text, trans: meaning });
+                       }
                   });
               }
           });

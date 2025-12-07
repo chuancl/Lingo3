@@ -43,13 +43,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
           setSearchResult(result);
           
           // Initialize editable cards
-          // Default: No image selected initially, or first available
-          // User requested "can select blank", so default null is safer unless we want to be smart.
-          // Let's default to null to let user choose.
-          
+          // Default: Select first by default
           const initialCards: EditableCardState[] = result.meanings.map((m, idx) => ({
               ...m,
-              isSelected: idx === 0, // Select first by default
+              isSelected: idx === 0, 
               selectedImage: null 
           }));
           setCards(initialCards);
@@ -187,11 +184,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                         {searchResult.phrases.length > 0 && (
                                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 max-h-40 overflow-y-auto custom-scrollbar">
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">常用短语 (Phrases)</span>
-                                                <div className="flex flex-col gap-1.5">
+                                                <div className="flex flex-col gap-2">
                                                     {searchResult.phrases.map((p, i) => (
-                                                        <div key={i} className="text-xs flex gap-2">
+                                                        <div key={i} className="text-xs flex flex-col gap-0.5 border-b border-slate-200/50 pb-1 last:border-0">
                                                             <span className="font-medium text-slate-700">{String(p.text)}</span>
-                                                            <span className="text-slate-500 truncate">{String(p.trans)}</span>
+                                                            <span className="text-slate-500">{String(p.trans)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -223,7 +220,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">近义词 (Synonyms)</span>
                                                 <div className="flex flex-wrap gap-2">
                                                     {searchResult.synonyms.map((s, i) => (
-                                                        <div key={i} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded" title={String(s.trans)}>
+                                                        <div key={i} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded cursor-help" title={String(s.trans)}>
                                                             <span className="text-slate-600">{String(s.text)}</span>
                                                         </div>
                                                     ))}
