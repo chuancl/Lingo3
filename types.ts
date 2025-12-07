@@ -54,15 +54,13 @@ export interface WordEntry {
   id: string;
   text: string; // 单词拼写
   
-  // Phonetics & Audio
+  // Phonetics (Audio is now generated dynamically)
   phoneticUs?: string; // 美式音标
-  usAudioUrl?: string; // 美式发音 URL (New)
   phoneticUk?: string; // 英式音标
-  ukAudioUrl?: string; // 英式发音 URL (New)
 
   // Definitions
   translation?: string; // 中文释义 (多条用分号或换行分隔)
-  englishDefinition?: string; // 英文释义 (New)
+  englishDefinition?: string; // 英文释义
 
   // Sentences
   contextSentence?: string; // 单词所在句子 (来源原句)
@@ -73,11 +71,13 @@ export interface WordEntry {
   // Examples
   dictionaryExample?: string; // 英文例句
   dictionaryExampleTranslation?: string; // 例句对应中文
+  dictionaryExampleAudioUrl?: string; // 例句发音 (Real audio from dict)
 
   // Morphology & Metadata
   inflections?: string[]; // 词态变化 (eating, ate, eaten...)
-  tags?: string[]; // 词汇等级 (中考, 高考, 四级, IELTS, Oxford 3000...) (New)
-  importance?: number; // 重要程度/词频星级 (1-5) (New)
+  tags?: string[]; // 词汇等级 (中考, 高考, 四级, IELTS, Oxford 3000...)
+  importance?: number; // 柯林斯星级/重要程度 (1-5)
+  cocaRank?: number; // COCA 词频排名
   
   // System
   addedAt: number;

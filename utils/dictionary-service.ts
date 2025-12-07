@@ -6,19 +6,19 @@ interface DictionaryResult {
   text: string;
   phoneticUs: string;
   phoneticUk: string;
-  usAudioUrl: string; // New
-  ukAudioUrl: string; // New
   inflections?: string[];
-  tags: string[]; // New
-  importance: number; // New
+  tags: string[]; 
+  importance: number; 
+  cocaRank: number; // New
   meanings: {
     translation: string;
     partOfSpeech?: string; 
-    englishDefinition: string; // New
+    englishDefinition: string; 
     contextSentence: string;
     mixedSentence: string;
     dictionaryExample: string;
     dictionaryExampleTranslation?: string; 
+    dictionaryExampleAudioUrl?: string; // New
   }[];
 }
 
@@ -52,9 +52,6 @@ const editDistance = (s1: string, s2: string) => {
   return costs[s2.length];
 };
 
-/**
- * Core Service: Fetches rich word info using the active engine.
- */
 export const fetchWordDetails = async (
   word: string, 
   preferredTranslation: string | undefined, 
@@ -68,17 +65,12 @@ export const fetchWordDetails = async (
     preferredTranslation: preferredTranslation
   });
 
-  if (!response) {
-    throw new Error("后台服务未响应，请刷新页面或重新加载扩展。");
-  }
-
-  if (!response.success) {
-    throw new Error(response.error || "Lookup failed");
-  }
+  if (!response) throw new Error("后台服务未响应，请刷新页面或重新加载扩展。");
+  if (!response.success) throw new Error(response.error || "Lookup failed");
 
   const result: DictionaryResult = response.data;
 
-  // 2. Filter logic
+  // Filter logic
   let selectedMeanings = result.meanings;
 
   if (preferredTranslation && preferredTranslation.trim()) {
@@ -87,34 +79,29 @@ export const fetchWordDetails = async (
         const scoreB = similarity(b.translation, preferredTranslation);
         return scoreB - scoreA;
     });
-    
-    if (sorted.length > 0) {
-        selectedMeanings = [sorted[0]];
-    }
+    if (sorted.length > 0) selectedMeanings = [sorted[0]];
   } else {
     selectedMeanings = selectedMeanings.filter(m => m.translation && m.translation.trim().length > 0);
   }
 
   const timestamp = Date.now();
   
-  // Return all common fields + specific meaning fields
   return selectedMeanings.map((m, idx) => ({
     text: result.text,
     phoneticUs: result.phoneticUs,
     phoneticUk: result.phoneticUk,
-    usAudioUrl: result.usAudioUrl,
-    ukAudioUrl: result.ukAudioUrl,
     inflections: result.inflections || [],
     tags: result.tags || [],
     importance: result.importance || 0,
+    cocaRank: result.cocaRank || 0,
     
-    // Meaning Specific
     translation: m.translation,
     englishDefinition: m.englishDefinition,
     contextSentence: m.contextSentence,
     mixedSentence: m.mixedSentence,
     dictionaryExample: m.dictionaryExample,
     dictionaryExampleTranslation: m.dictionaryExampleTranslation,
+    dictionaryExampleAudioUrl: m.dictionaryExampleAudioUrl,
     
     addedAt: timestamp + idx
   }));

@@ -308,8 +308,6 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
                         translation: details.translation || '',
                         phoneticUs: details.phoneticUs,
                         phoneticUk: details.phoneticUk,
-                        usAudioUrl: details.usAudioUrl,
-                        ukAudioUrl: details.ukAudioUrl,
                         contextSentence: details.contextSentence,
                         mixedSentence: details.mixedSentence,
                         dictionaryExample: details.dictionaryExample,
@@ -359,9 +357,7 @@ export const WordManager: React.FC<WordManagerProps> = ({ scenarios, entries, se
               translation: entryData.translation,
               englishDefinition: entryData.englishDefinition,
               phoneticUs: entryData.phoneticUs,
-              usAudioUrl: entryData.usAudioUrl,
               phoneticUk: entryData.phoneticUk,
-              ukAudioUrl: entryData.ukAudioUrl,
               contextSentence: entryData.contextSentence, // Manual add usually lacks context unless user types it
               mixedSentence: entryData.mixedSentence,
               dictionaryExample: entryData.dictionaryExample,

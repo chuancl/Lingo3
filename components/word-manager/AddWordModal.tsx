@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Wand2, Volume2, Save, X, BookOpen, Star, Hash, Mic2 } from 'lucide-react';
+import { Loader2, Wand2, Volume2, Save, X, BookOpen, Star, Hash, Mic2, BarChart2 } from 'lucide-react';
 import { WordEntry, TranslationEngine } from '../../types';
 import { enginesStorage } from '../../utils/storage';
 import { fetchWordDetails } from '../../utils/dictionary-service';
+import { playWordAudio } from '../../utils/audio';
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -20,29 +21,27 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
   const [formData, setFormData] = useState<{
       text: string;
       phoneticUk: string;
-      ukAudioUrl: string;
       phoneticUs: string;
-      usAudioUrl: string;
       translation: string;
       englishDefinition: string;
-      inflections: string; // Join with comma for edit
+      inflections: string; 
       dictionaryExample: string;
       dictionaryExampleTranslation: string;
-      tags: string; // Join with comma
+      tags: string; 
       importance: number;
+      cocaRank: number; // New
   }>({
       text: '',
       phoneticUk: '',
-      ukAudioUrl: '',
       phoneticUs: '',
-      usAudioUrl: '',
       translation: '',
       englishDefinition: '',
       inflections: '',
       dictionaryExample: '',
       dictionaryExampleTranslation: '',
       tags: '',
-      importance: 0
+      importance: 0,
+      cocaRank: 0
   });
 
   useEffect(() => {
@@ -56,9 +55,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
       if(!isOpen) {
           // Reset form on close
           setFormData({
-            text: '', phoneticUk: '', ukAudioUrl: '', phoneticUs: '', usAudioUrl: '',
+            text: '', phoneticUk: '', phoneticUs: '',
             translation: '', englishDefinition: '', inflections: '',
-            dictionaryExample: '', dictionaryExampleTranslation: '', tags: '', importance: 0
+            dictionaryExample: '', dictionaryExampleTranslation: '', tags: '', importance: 0, cocaRank: 0
           });
       }
   }, [isOpen]);
@@ -69,25 +68,23 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
       try {
           const results = await fetchWordDetails(formData.text, undefined, activeEngine);
           if (results && results.length > 0) {
-              const best = results[0]; // Take the first result as base
+              const best = results[0]; 
               
-              // Merge all translations from results if multiple meanings returned
               const allTranslations = results.map(r => r.translation).filter(Boolean).join('\n');
               const allEngDefs = results.map(r => r.englishDefinition).filter(Boolean).join('\n');
 
               setFormData({
                   text: best.text || formData.text,
                   phoneticUk: best.phoneticUk || '',
-                  ukAudioUrl: best.ukAudioUrl || '',
                   phoneticUs: best.phoneticUs || '',
-                  usAudioUrl: best.usAudioUrl || '',
                   translation: allTranslations,
                   englishDefinition: allEngDefs,
                   inflections: (best.inflections || []).join(', '),
                   dictionaryExample: best.dictionaryExample || '',
                   dictionaryExampleTranslation: best.dictionaryExampleTranslation || '',
                   tags: (best.tags || []).join(', '),
-                  importance: best.importance || 0
+                  importance: best.importance || 0,
+                  cocaRank: best.cocaRank || 0
               });
           }
       } catch (e) {
@@ -104,26 +101,19 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
       const entryData: Partial<WordEntry> = {
           text: formData.text,
           phoneticUk: formData.phoneticUk,
-          ukAudioUrl: formData.ukAudioUrl,
           phoneticUs: formData.phoneticUs,
-          usAudioUrl: formData.usAudioUrl,
           translation: formData.translation,
           englishDefinition: formData.englishDefinition,
           inflections: formData.inflections.split(/[,，]/).map(s => s.trim()).filter(Boolean),
           dictionaryExample: formData.dictionaryExample,
           dictionaryExampleTranslation: formData.dictionaryExampleTranslation,
           tags: formData.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean),
-          importance: Number(formData.importance) || 0
+          importance: Number(formData.importance) || 0,
+          cocaRank: Number(formData.cocaRank) || 0,
       };
 
       await onConfirm(entryData);
       onClose();
-  };
-
-  const playAudio = (url: string) => {
-      if(!url) return;
-      const audio = new Audio(url);
-      audio.play().catch(e => console.error("Audio play failed", e));
   };
 
   if (!isOpen) return null;
@@ -191,16 +181,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                     value={formData.phoneticUk} onChange={e => setFormData({...formData, phoneticUk: e.target.value})} placeholder="/.../" />
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => playAudio(formData.ukAudioUrl)} disabled={!formData.ukAudioUrl} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 disabled:opacity-50" title="试听">
+                                <button onClick={() => playWordAudio(formData.text, 'UK')} disabled={!formData.text} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 disabled:opacity-50" title="试听">
                                     <Volume2 className="w-4 h-4" />
                                 </button>
-                                <div className="relative group">
-                                     <input type="text" className="w-0 group-hover:w-32 transition-all opacity-0 group-hover:opacity-100 absolute bottom-full left-0 mb-1 border rounded px-2 py-1 text-xs bg-white shadow-lg z-10" 
-                                        value={formData.ukAudioUrl} onChange={e => setFormData({...formData, ukAudioUrl: e.target.value})} placeholder="URL..." />
-                                     <button className="p-2.5 rounded-lg border border-slate-200 bg-white text-slate-400">
-                                         <Mic2 className="w-4 h-4" />
-                                     </button>
-                                </div>
                             </div>
                         </div>
 
@@ -212,16 +195,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                     value={formData.phoneticUs} onChange={e => setFormData({...formData, phoneticUs: e.target.value})} placeholder="/.../" />
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => playAudio(formData.usAudioUrl)} disabled={!formData.usAudioUrl} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 disabled:opacity-50" title="试听">
+                                <button onClick={() => playWordAudio(formData.text, 'US')} disabled={!formData.text} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 disabled:opacity-50" title="试听">
                                     <Volume2 className="w-4 h-4" />
                                 </button>
-                                 <div className="relative group">
-                                     <input type="text" className="w-0 group-hover:w-32 transition-all opacity-0 group-hover:opacity-100 absolute bottom-full left-0 mb-1 border rounded px-2 py-1 text-xs bg-white shadow-lg z-10" 
-                                        value={formData.usAudioUrl} onChange={e => setFormData({...formData, usAudioUrl: e.target.value})} placeholder="URL..." />
-                                     <button className="p-2.5 rounded-lg border border-slate-200 bg-white text-slate-400">
-                                         <Mic2 className="w-4 h-4" />
-                                     </button>
-                                </div>
                             </div>
                         </div>
 
@@ -244,6 +220,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                  <input type="number" min="0" max="5" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs" 
                                     value={formData.importance} onChange={e => setFormData({...formData, importance: parseInt(e.target.value)})} />
                              </div>
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center"><BarChart2 className="w-3 h-3 mr-1 text-blue-500"/> COCA 词频排名</label>
+                             <input type="number" min="0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs" 
+                                value={formData.cocaRank} onChange={e => setFormData({...formData, cocaRank: parseInt(e.target.value)})} placeholder="例如: 120" />
                         </div>
                     </div>
 
