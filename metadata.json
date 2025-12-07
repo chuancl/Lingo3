@@ -1,0 +1,5 @@
+{
+  "name": "Lingo2",
+  "description": "ContextLingo Chrome 扩展的配置仪表盘，管理词汇表、样式、翻译引擎和 Anki 集成。",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,45 @@
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 隐藏滚动条但保留滚动功能 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 扩展自定义样式，用于 Content Script 注入的内容 */
+.context-lingo-word {
+  /* 保留用于简单选择 */
+  position: relative;
+  /* Ruby layout requires inline flow to align baselines correctly */
+  display: inline; 
+  border-radius: 4px;
+}
+
+.context-lingo-wrapper {
+   /* Reset generic styles to avoid page pollution */
+   font-variant: normal;
+   text-transform: none;
+   letter-spacing: normal;
+}
+
+/* Bilingual Paragraph Translation Block */
+.context-lingo-bilingual-block {
+    display: block;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    color: #475569; /* slate-600 */
+    font-size: 0.95em;
+    line-height: 1.6;
+    padding: 8px 12px;
+    background-color: #f8fafc; /* slate-50 */
+    border-left: 3px solid #cbd5e1; /* slate-300 */
+    border-radius: 4px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
