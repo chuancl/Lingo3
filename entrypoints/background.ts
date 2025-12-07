@@ -25,25 +25,44 @@ export default defineBackground(() => {
     }
   });
 
-  // --- Helpers for Youdao Data Normalization ---
-  // Youdao sometimes returns tags as objects { examType: 'CET4', ... } or just strings
-  const normalizeTags = (tags: any): string[] => {
-      if (!Array.isArray(tags)) return [];
-      return tags.map(t => {
-          if (typeof t === 'string') return t;
-          if (t && typeof t === 'object' && t.examType) return t.examType;
+  // --- Aggressive Sanitization Helper ---
+  const safeString = (input: any): string => {
+      if (input === null || input === undefined) return '';
+      if (typeof input === 'string') return input;
+      if (typeof input === 'number') return String(input);
+      
+      // If it's an object, try to extract known text-bearing properties
+      if (typeof input === 'object') {
+          // Common Youdao keys
+          const candidates = [
+              input.value, 
+              input.text, 
+              input.examType, 
+              input.word, 
+              input.headword, 
+              input.tran,
+              input.translation
+          ];
+          
+          for (const c of candidates) {
+              if (c && typeof c === 'string') return c;
+          }
+          // If no known string property found, ignore it to prevent rendering [object Object]
           return '';
-      }).filter(t => t && typeof t === 'string');
+      }
+      return '';
   };
 
-  // Youdao/Collins forms are often objects { form: 'past', value: 'booked' }
+  // --- Helpers for Youdao Data Normalization ---
+  
+  const normalizeTags = (tags: any): string[] => {
+      if (!Array.isArray(tags)) return [];
+      return tags.map(t => safeString(t)).filter(t => t.trim().length > 0);
+  };
+
   const normalizeForms = (forms: any): string[] => {
       if (!Array.isArray(forms)) return [];
-      return forms.map(f => {
-           if (typeof f === 'string') return f;
-           if (f && typeof f === 'object' && f.value) return f.value;
-           return '';
-      }).filter(f => f && typeof f === 'string');
+      return forms.map(f => safeString(f)).filter(f => f.trim().length > 0);
   };
 
   // --- 1. Fetch COCA Rank (Separate Request) ---
@@ -65,11 +84,11 @@ export default defineBackground(() => {
       const ecWord = data.ec?.word?.[0];
       
       if (simpleWord) {
-          phoneticUs = simpleWord['usphone'] ? `/${simpleWord['usphone']}/` : '';
-          phoneticUk = simpleWord['ukphone'] ? `/${simpleWord['ukphone']}/` : '';
+          phoneticUs = simpleWord['usphone'] ? `/${safeString(simpleWord['usphone'])}/` : '';
+          phoneticUk = simpleWord['ukphone'] ? `/${safeString(simpleWord['ukphone'])}/` : '';
       } else if (ecWord) {
-          phoneticUs = ecWord['usphone'] ? `/${ecWord['usphone']}/` : '';
-          phoneticUk = ecWord['ukphone'] ? `/${ecWord['ukphone']}/` : '';
+          phoneticUs = ecWord['usphone'] ? `/${safeString(ecWord['usphone'])}/` : '';
+          phoneticUk = ecWord['ukphone'] ? `/${safeString(ecWord['ukphone'])}/` : '';
       }
 
       // 2. Public Info
@@ -78,14 +97,21 @@ export default defineBackground(() => {
       if (data.collins_primary?.words?.indexforms) {
            inflections = normalizeForms(data.collins_primary.words.indexforms);
       } else if (data.wfs) {
-           data.wfs.forEach((item: any) => { if (item.wf?.value) inflections.push(item.wf.value); });
+           data.wfs.forEach((item: any) => { 
+               if (item.wf) {
+                   const val = safeString(item.wf);
+                   if (val) inflections.push(val);
+               }
+           });
       }
 
       // Phrases
       const phrases: { text: string; trans: string }[] = [];
       if (data.phrs?.phrs) {
           data.phrs.phrs.forEach((p: any) => {
-              if (p.headword && p.translation) phrases.push({ text: p.headword, trans: p.translation });
+              const text = safeString(p.headword);
+              const trans = safeString(p.translation);
+              if (text && trans) phrases.push({ text, trans });
           });
       }
 
@@ -96,11 +122,13 @@ export default defineBackground(() => {
               const rootWords: { text: string; trans: string }[] = [];
               if (rel.rel?.words) {
                    rel.rel.words.forEach((w: any) => {
-                       if (w.word && w.tran) rootWords.push({ text: w.word, trans: w.tran });
+                       const text = safeString(w.word);
+                       const trans = safeString(w.tran);
+                       if (text && trans) rootWords.push({ text, trans });
                    });
               }
               if (rootWords.length > 0) {
-                  roots.push({ root: rel.rel?.pos || 'Root', words: rootWords });
+                  roots.push({ root: safeString(rel.rel?.pos) || 'Root', words: rootWords });
               }
           });
       }
@@ -111,21 +139,26 @@ export default defineBackground(() => {
           data.syno.synos.forEach((group: any) => {
               if (group.ws) {
                   group.ws.forEach((w: any) => {
-                       if (w.w && w.tran) synonyms.push({ text: w.w, trans: w.tran });
+                       const text = safeString(w.w);
+                       const trans = safeString(w.tran);
+                       if (text && trans) synonyms.push({ text, trans });
                   });
               }
           });
       }
 
       // Picture
-      const picUrl = data.pic_dict?.pic?.[0]?.image || undefined;
+      const picUrl = data.pic_dict?.pic?.[0]?.image ? safeString(data.pic_dict.pic[0].image) : undefined;
 
       // Video
       let video = undefined;
       if (data.word_video?.video?.[0]) {
           const v = data.word_video.video[0];
-          if (v.url && v.cover) {
-              video = { title: v.title || 'Video', url: v.url, cover: v.cover };
+          const url = safeString(v.url);
+          const cover = safeString(v.cover);
+          const title = safeString(v.title);
+          if (url && cover) {
+              video = { title: title || 'Video', url, cover };
           }
       }
 
@@ -133,38 +166,41 @@ export default defineBackground(() => {
       const meanings: DictionaryMeaningCard[] = [];
       
       // Global Tags (Exam Types)
+      // data.ec.exam_type can be ["CET4"] or [{examType: "CET4"}]
       const globalTags = normalizeTags(data.ec?.exam_type || []);
 
       // Strategy A: Collins Primary (High Quality)
       if (data.collins_primary?.gramcat) {
           data.collins_primary.gramcat.forEach((cat: any) => {
-               const pos = cat.partofspeech || '';
-               const forms = normalizeForms(cat.forms || []); // Normalize object forms
+               const pos = safeString(cat.partofspeech);
+               const forms = normalizeForms(cat.forms || []); 
                
                if (cat.audiences) {
                    cat.audiences.forEach((aud: any) => {
                        if (aud.senses) {
                            aud.senses.forEach((sense: any) => {
-                               const defCn = sense.chn_tran || '';
-                               const defEn = sense.def || '';
-                               const exObj = sense.examples?.[0];
-                               const example = exObj?.ex || '';
-                               const exampleTrans = exObj?.tran || '';
+                               const defCn = safeString(sense.chn_tran);
+                               const defEn = safeString(sense.def);
                                
-                               // Collins star
+                               const exObj = sense.examples?.[0];
+                               const example = exObj ? safeString(exObj.ex) : '';
+                               const exampleTrans = exObj ? safeString(exObj.tran) : '';
+                               
                                const star = data.collins?.collins_entries?.[0]?.star || 0;
                                
-                               meanings.push({
-                                   partOfSpeech: pos,
-                                   defCn,
-                                   defEn,
-                                   inflections: forms,
-                                   tags: globalTags,
-                                   importance: star,
-                                   cocaRank,
-                                   example,
-                                   exampleTrans
-                               });
+                               if (defCn || defEn) {
+                                   meanings.push({
+                                       partOfSpeech: pos,
+                                       defCn,
+                                       defEn,
+                                       inflections: forms,
+                                       tags: globalTags,
+                                       importance: typeof star === 'number' ? star : 0,
+                                       cocaRank,
+                                       example,
+                                       exampleTrans
+                                   });
+                               }
                            });
                        }
                    });
@@ -175,27 +211,28 @@ export default defineBackground(() => {
       // Strategy B: Expand EC (Fallback or Complement)
       if (meanings.length === 0 && data.expand_ec?.word) {
           data.expand_ec.word.forEach((w: any) => {
-              const pos = w.pos || '';
-              // Specific forms in expand_ec?
-              const wfs = w.wfs ? w.wfs.map((x: any) => x.wf?.value).filter(Boolean) : [];
+              const pos = safeString(w.pos);
+              const wfs = w.wfs ? w.wfs.map((x: any) => safeString(x.wf)).filter((s: string) => s) : [];
               
               if (w.transList) {
                   w.transList.forEach((tr: any) => {
-                      const defCn = tr.content || tr.trans || '';
+                      const defCn = safeString(tr.content) || safeString(tr.trans);
                       let example = '';
                       let exampleTrans = '';
                       
-                      meanings.push({
-                          partOfSpeech: pos,
-                          defCn,
-                          defEn: '', 
-                          inflections: wfs,
-                          tags: globalTags,
-                          importance: 0,
-                          cocaRank,
-                          example,
-                          exampleTrans
-                      });
+                      if (defCn) {
+                        meanings.push({
+                            partOfSpeech: pos,
+                            defCn,
+                            defEn: '', 
+                            inflections: wfs,
+                            tags: globalTags,
+                            importance: 0,
+                            cocaRank,
+                            example,
+                            exampleTrans
+                        });
+                      }
                   });
               }
           });
@@ -204,18 +241,20 @@ export default defineBackground(() => {
       // Strategy C: Basic EC (Last Resort)
       if (meanings.length === 0 && data.ec?.word?.[0]?.trs) {
            data.ec.word[0].trs.forEach((tr: any) => {
-               const raw = tr.tr?.[0]?.l?.i?.[0] || "";
-               meanings.push({
-                   partOfSpeech: '',
-                   defCn: raw,
-                   defEn: '',
-                   inflections: [],
-                   tags: globalTags,
-                   importance: 0,
-                   cocaRank,
-                   example: '',
-                   exampleTrans: ''
-               });
+               const raw = safeString(tr.tr?.[0]?.l?.i?.[0]);
+               if (raw) {
+                   meanings.push({
+                       partOfSpeech: '',
+                       defCn: raw,
+                       defEn: '',
+                       inflections: [],
+                       tags: globalTags,
+                       importance: 0,
+                       cocaRank,
+                       example: '',
+                       exampleTrans: ''
+                   });
+               }
            });
       }
 
@@ -225,15 +264,15 @@ export default defineBackground(() => {
           let exIndex = 0;
           meanings.forEach(m => {
               if (!m.example && exIndex < globalExs.length) {
-                  m.example = globalExs[exIndex].sentence;
-                  m.exampleTrans = globalExs[exIndex]['sentence-translation'];
+                  m.example = safeString(globalExs[exIndex].sentence);
+                  m.exampleTrans = safeString(globalExs[exIndex]['sentence-translation']);
                   exIndex++;
               }
           });
       }
 
       return {
-          text: data.simple?.word?.[0]?.['return-phrase'] || data.input || "",
+          text: safeString(data.simple?.word?.[0]?.['return-phrase'] || data.input),
           phoneticUs,
           phoneticUk,
           inflections,

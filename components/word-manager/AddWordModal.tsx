@@ -165,7 +165,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">词态变化 (Forms)</span>
                                         <div className="flex flex-wrap gap-2">
                                             {searchResult.inflections.map(f => (
-                                                <span key={f} className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-600">{f}</span>
+                                                <span key={String(f)} className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-600">{String(f)}</span>
                                             ))}
                                         </div>
                                     </div>
@@ -257,8 +257,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                                     </span>
                                                 )}
                                                 {card.tags.map(t => (
-                                                    <span key={t} className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 border border-slate-200">
-                                                        {t}
+                                                    <span key={String(t)} className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 border border-slate-200">
+                                                        {String(t)}
                                                     </span>
                                                 ))}
                                             </div>
@@ -266,8 +266,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({ isOpen, onClose, onC
                                             {/* Example */}
                                             {card.example && (
                                                 <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 text-sm">
-                                                    <p className="text-slate-700 font-medium italic mb-1">{card.example}</p>
-                                                    <p className="text-slate-500 text-xs">{card.exampleTrans}</p>
+                                                    <p className="text-slate-700 font-medium italic mb-1">{String(card.example)}</p>
+                                                    <p className="text-slate-500 text-xs">{String(card.exampleTrans)}</p>
                                                 </div>
                                             )}
                                         </div>
