@@ -25,14 +25,31 @@ export default defineBackground(() => {
     }
   });
 
+  // --- Helpers for Youdao Data Normalization ---
+  // Youdao sometimes returns tags as objects { examType: 'CET4', ... } or just strings
+  const normalizeTags = (tags: any): string[] => {
+      if (!Array.isArray(tags)) return [];
+      return tags.map(t => {
+          if (typeof t === 'string') return t;
+          if (t && typeof t === 'object' && t.examType) return t.examType;
+          return '';
+      }).filter(t => t && typeof t === 'string');
+  };
+
+  // Youdao/Collins forms are often objects { form: 'past', value: 'booked' }
+  const normalizeForms = (forms: any): string[] => {
+      if (!Array.isArray(forms)) return [];
+      return forms.map(f => {
+           if (typeof f === 'string') return f;
+           if (f && typeof f === 'object' && f.value) return f.value;
+           return '';
+      }).filter(f => f && typeof f === 'string');
+  };
+
   // --- 1. Fetch COCA Rank (Separate Request) ---
   const fetchCocaRank = async (word: string): Promise<number> => {
       try {
           // Placeholder for real COCA source. 
-          // Youdao sometimes returns 'rank' in ec/collins but COCA is distinct.
-          // If the user configures a proxy for COCA, it would go here.
-          // For now, returning 0 to act as "not found" or "no API configured".
-          // Example: const res = await fetch(`https://some-coca-api.com/${word}`);
           return 0;
       } catch (e) {
           return 0;
@@ -59,7 +76,7 @@ export default defineBackground(() => {
       // Inflections
       let inflections: string[] = [];
       if (data.collins_primary?.words?.indexforms) {
-           inflections = data.collins_primary.words.indexforms;
+           inflections = normalizeForms(data.collins_primary.words.indexforms);
       } else if (data.wfs) {
            data.wfs.forEach((item: any) => { if (item.wf?.value) inflections.push(item.wf.value); });
       }
@@ -115,11 +132,14 @@ export default defineBackground(() => {
       // 3. Meaning Cards
       const meanings: DictionaryMeaningCard[] = [];
       
+      // Global Tags (Exam Types)
+      const globalTags = normalizeTags(data.ec?.exam_type || []);
+
       // Strategy A: Collins Primary (High Quality)
       if (data.collins_primary?.gramcat) {
           data.collins_primary.gramcat.forEach((cat: any) => {
                const pos = cat.partofspeech || '';
-               const forms = cat.forms || []; // Specific forms for this meaning
+               const forms = normalizeForms(cat.forms || []); // Normalize object forms
                
                if (cat.audiences) {
                    cat.audiences.forEach((aud: any) => {
@@ -139,7 +159,7 @@ export default defineBackground(() => {
                                    defCn,
                                    defEn,
                                    inflections: forms,
-                                   tags: data.ec?.exam_type || [],
+                                   tags: globalTags,
                                    importance: star,
                                    cocaRank,
                                    example,
@@ -162,22 +182,15 @@ export default defineBackground(() => {
               if (w.transList) {
                   w.transList.forEach((tr: any) => {
                       const defCn = tr.content || tr.trans || '';
-                      
-                      // Try to match an example from global examples (blng_sents_part) that matches this meaning keyword
-                      // Simplified: Just grab the first bilingual sentence not used yet, or empty
-                      // Ideally we'd search data.blng_sents_part
                       let example = '';
                       let exampleTrans = '';
-
-                      // Try to find an example in the same POS group? 
-                      // expand_ec doesn't nest examples well. We'll use a placeholder.
                       
                       meanings.push({
                           partOfSpeech: pos,
                           defCn,
-                          defEn: '', // expand_ec often lacks EN defs per meaning
+                          defEn: '', 
                           inflections: wfs,
-                          tags: data.ec?.exam_type || [],
+                          tags: globalTags,
                           importance: 0,
                           cocaRank,
                           example,
@@ -197,7 +210,7 @@ export default defineBackground(() => {
                    defCn: raw,
                    defEn: '',
                    inflections: [],
-                   tags: data.ec?.exam_type || [],
+                   tags: globalTags,
                    importance: 0,
                    cocaRank,
                    example: '',
@@ -250,8 +263,6 @@ export default defineBackground(() => {
                       return parseYoudaoDeep(data, cocaRank);
                   }
               }
-              // Add other dict handlers (ICBA) here if needed, similar logic
-              // For brevity, defaulting to Youdao as it has the rich structure requested.
           } catch (e) {
               console.warn(`Dict ${dict.name} error`, e);
           }
